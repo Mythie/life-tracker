@@ -1,0 +1,54 @@
+name: Monthly Retrospectives Run
+
+on: 
+  schedule:
+    - cron: '0 20 1 * *'
+  
+  workflow_dispatch:
+
+jobs:
+  run-monthly-retrospectives:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - run: git config user.name 'github-actions[bot]'
+      - run: git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - run: |
+          if [ !-z $(grep "enable_retrospectives=true" "config.ini") ]; then
+            echo 'Retrospective automations are disabled!'
+            
+            exit 1
+          fi
+
+      - run: echo "# Retrospective for Month starting at $(date +'%Y-%m-%d')" >  "./retrospectives/$(date +'%Y-%m-%d').md"
+      - run: echo "" >>  "./retrospectives/$(date +'%Y-%m-%d').md"
+      - run: echo "- [ ] I used my life tracker for another month and made some progress on recording events" >>  "./retrospectives/$(date +'%Y-%m-%d').md"
+      
+      - run: git add .
+      - run: "git commit --allow-empty -m 'chore: add new monthly retrospective file'"
+      
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          branch: ${{ github.ref }}
+          github_token: ${{ github.token }}
+          tags: true
+
+      - name: Send mail
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{secrets.MAIL_HOST}}
+          server_port: ${{secrets.MAIL_PORT}}
+          username: ${{secrets.MAIL_USERNAME}}
+          password: ${{secrets.MAIL_PASSWORD}}
+          subject: It's time to create your monthly retrospective!
+          to: ${{secrets.TO_ADDRESS}}
+          from: ${{secrets.FROM_ADDRESS}}
+          secure: true
+          body: It's time to create your monthly retrospective
+          html_body: file://.templates/monthly-retrospectives.html
+          ignore_cert: true

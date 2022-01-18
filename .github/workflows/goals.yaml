@@ -1,0 +1,54 @@
+name: Quarterly Goals Run
+
+on: 
+  schedule:
+    - cron: '0 20 1 1,3,6,9,12 *'
+  
+  workflow_dispatch:
+
+jobs:
+  run-quarterly-goals:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - run: git config user.name 'github-actions[bot]'
+      - run: git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - run: |
+          if [ !-z $(grep "enable_goals=true" "config.ini") ]; then
+            echo 'Goal automations are disabled!'
+            
+            exit 1
+          fi
+
+      - run: echo "# Goals for Quarter starting at $(date +'%Y-%m-%d')" >  "./goals/$(date +'%Y-%m-%d').md"
+      - run: echo "" >>  "./goals/$(date +'%Y-%m-%d').md"
+      - run: echo "- [ ] Open this file" >>  "./goals/$(date +'%Y-%m-%d').md"
+      
+      - run: git add .
+      - run: "git commit --allow-empty -m 'chore: add new quarterly goals file'"
+      
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          branch: ${{ github.ref }}
+          github_token: ${{ github.token }}
+          tags: true
+
+      - name: Send mail
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{secrets.MAIL_HOST}}
+          server_port: ${{secrets.MAIL_PORT}}
+          username: ${{secrets.MAIL_USERNAME}}
+          password: ${{secrets.MAIL_PASSWORD}}
+          subject: It's time to track your quarterly goals!
+          to: ${{secrets.TO_ADDRESS}}
+          from: ${{secrets.FROM_ADDRESS}}
+          secure: true
+          body: It's time to track your quarterly goals
+          html_body: file://.templates/quarterly-goals.html
+          ignore_cert: true
